@@ -8,6 +8,9 @@
 #include <linux/sched.h>
 #include <linux/sched/idle.h>
 
+#define POLL_IDLE_TIME_LIMIT	(TICK_NSEC / 16)
+#define POLL_IDLE_RELAX_COUNT	200
+
 static int __cpuidle poll_idle(struct cpuidle_device *dev,
 			       struct cpuidle_driver *drv, int index)
 {
@@ -15,6 +18,17 @@ static int __cpuidle poll_idle(struct cpuidle_device *dev,
 	if (!current_set_polling_and_test()) {
 		while (!need_resched())
 			cpu_relax();
+		unsigned int loop_count = 0;
+
+		while (!need_resched()) {
+			cpu_relax();
+			if (loop_count++ < POLL_IDLE_RELAX_COUNT)
+				continue;
+
+			loop_count = 0;
+			if (local_clock() - time_start > POLL_IDLE_TIME_LIMIT)
+				break;
+		}
 	}
 	current_clr_polling();
 
