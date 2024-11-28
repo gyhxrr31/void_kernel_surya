@@ -332,7 +332,9 @@ static int cpufreq_thermal_notifier(struct notifier_block *nb,
 	 * Similarly, if policy minimum set by the user is less than
 	 * the floor_frequency, then adjust the policy->min.
 	 */
-	cpufreq_verify_within_limits(policy, floor_freq, clipped_freq);
+	if (policy->max > clipped_freq || policy->min < floor_freq)
+		cpufreq_verify_within_limits(policy, floor_freq, clipped_freq);
+
 	mutex_unlock(&cooling_list_lock);
 
 	return NOTIFY_OK;
@@ -748,7 +750,7 @@ update_frequency:
 	 * can handle the CPU freq mitigation, if not, notify cpufreq
 	 * framework.
 	 */
-	if (USE_LMH_DEV && cpufreq_cdev->plat_ops) {
+	if (cpufreq_cdev->plat_ops) {
 		if (cpufreq_cdev->plat_ops->ceil_limit)
 			cpufreq_cdev->plat_ops->ceil_limit(cpu,
 						clip_freq);
@@ -1117,7 +1119,7 @@ __cpufreq_cooling_register(struct device_node *np,
 	list_add(&cpufreq_cdev->node, &cpufreq_cdev_list);
 	mutex_unlock(&cooling_list_lock);
 
-	if (first)
+	if (first && !cpufreq_cdev->plat_ops)
 		cpufreq_register_notifier(&thermal_cpufreq_notifier_block,
 					  CPUFREQ_POLICY_NOTIFIER);
 	if (!cpuhp_registered) {
@@ -1310,9 +1312,10 @@ void cpufreq_cooling_unregister(struct thermal_cooling_device *cdev)
 
 	if (last) {
 		unregister_pm_notifier(&cpufreq_cooling_pm_nb);
-		cpufreq_unregister_notifier(
-				&thermal_cpufreq_notifier_block,
-				CPUFREQ_POLICY_NOTIFIER);
+		if (!cpufreq_cdev->plat_ops)
+			cpufreq_unregister_notifier(
+					&thermal_cpufreq_notifier_block,
+					CPUFREQ_POLICY_NOTIFIER);
 	}
 
 	thermal_cooling_device_unregister(cpufreq_cdev->cdev);

@@ -4292,10 +4292,10 @@ int dsi_panel_enable(struct dsi_panel *panel)
 		panel->panel_initialized = true;
 	mutex_unlock(&panel->panel_lock);
 
-	if (panel->hbm_mode)
+	//if (panel->hbm_mode)
 		dsi_panel_apply_hbm_mode(panel);
 
-	if (panel->cabc_mode)
+	//if (panel->cabc_mode)
 		dsi_panel_apply_cabc_mode(panel);
 
 	return rc;

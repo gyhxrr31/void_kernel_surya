@@ -46,6 +46,7 @@
 #define DSI_CLOCK_BITRATE_RADIX 10
 #define MAX_TE_SOURCE_ID  2
 
+
 DEFINE_MUTEX(dsi_display_clk_mutex);
 
 static char dsi_display_primary[MAX_CMDLINE_PARAM_LEN];
@@ -60,7 +61,8 @@ static const struct of_device_id dsi_display_dt_match[] = {
 	{}
 };
 
-static unsigned int cur_refresh_rate = 60;
+static int dynamic_refresh_rate = -1;
+unsigned int cur_refresh_rate = 60;
 
 static void dsi_display_mask_ctrl_error_interrupts(struct dsi_display *display,
 			u32 mask, bool enable)
@@ -5018,12 +5020,67 @@ static DEVICE_ATTR(dynamic_dsi_clock, 0644,
 			sysfs_dynamic_dsi_clk_read,
 			sysfs_dynamic_dsi_clk_write);
 
+static ssize_t sysfs_dynamic_refresh_rate_read(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	int rc = 0;
+
+	rc = snprintf(buf, PAGE_SIZE, "%d\n", dynamic_refresh_rate);
+	pr_info("%s: dynamic refresh rate is %d\n", __func__, dynamic_refresh_rate);
+
+	return rc;
+}
+
+static ssize_t sysfs_dynamic_refresh_rate_write(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	int rc = 0;
+
+	rc = kstrtoint(buf, 0, &dynamic_refresh_rate);
+	if (rc) {
+		pr_err("%s: kstrtoint failed. rc=%d\n", __func__, rc);
+		return rc;
+	}
+
+	return rc;
+
+}
+
+static ssize_t sysfs_current_refresh_rate_read(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	int rc = 0;
+
+	rc = snprintf(buf, PAGE_SIZE, "%d\n", cur_refresh_rate);
+
+	return rc;
+}
+
+static DEVICE_ATTR(dynamic_refresh_rate, 0644,
+			sysfs_dynamic_refresh_rate_read,
+			sysfs_dynamic_refresh_rate_write);
+
+static DEVICE_ATTR(current_refresh_rate, 0444,
+			sysfs_current_refresh_rate_read, 
+            NULL);
+
 static struct attribute *dynamic_dsi_clock_fs_attrs[] = {
 	&dev_attr_dynamic_dsi_clock.attr,
 	NULL,
 };
+
+static struct attribute *dynamic_refresh_rate_fs_attrs[] = {
+    &dev_attr_dynamic_refresh_rate.attr,
+    &dev_attr_current_refresh_rate.attr,
+	NULL,
+};
+
 static struct attribute_group dynamic_dsi_clock_fs_attrs_group = {
 	.attrs = dynamic_dsi_clock_fs_attrs,
+};
+
+static struct attribute_group dynamic_refresh_rate_fs_attrs_group = {
+	.attrs = dynamic_refresh_rate_fs_attrs,
 };
 
 static int dsi_display_validate_split_link(struct dsi_display *display)
@@ -5158,11 +5215,11 @@ error:
 	return ret == 0 ? count : ret;
 }
 
-static DEVICE_ATTR(hbm, 0644,
+static DEVICE_ATTR(hbm, 0664,
 			sysfs_hbm_read,
 			sysfs_hbm_write);
 
-static DEVICE_ATTR(cabc, 0644,
+static DEVICE_ATTR(cabc, 0664,
 			sysfs_cabc_read,
 			sysfs_cabc_write);
 
@@ -5189,6 +5246,9 @@ static int dsi_display_sysfs_init(struct dsi_display *display)
 		rc = sysfs_create_group(&dev->kobj,
 			&dynamic_dsi_clock_fs_attrs_group);
 
+	rc = sysfs_create_group(&dev->kobj,
+			&dynamic_refresh_rate_fs_attrs_group);
+
 	return rc;
 
 }
@@ -5200,6 +5260,9 @@ static int dsi_display_sysfs_deinit(struct dsi_display *display)
 	if (display->panel->panel_mode == DSI_OP_CMD_MODE)
 		sysfs_remove_group(&dev->kobj,
 			&dynamic_dsi_clock_fs_attrs_group);
+
+	sysfs_remove_group(&dev->kobj,
+		&dynamic_refresh_rate_fs_attrs_group);
 
 	return 0;
 
@@ -6584,7 +6647,7 @@ int dsi_display_get_panel_vfp(void *dsi_display,
 		refresh_rate = display->panel->cur_mode->timing.refresh_rate;
 
 	dsi_panel_get_dfps_caps(display->panel, &dfps_caps);
-	if (dfps_caps.dfps_support)
+	if (dfps_caps.dfps_support && !refresh_rate)
 		refresh_rate = dfps_caps.max_refresh_rate;
 
 	if (!refresh_rate) {
@@ -6815,6 +6878,10 @@ int dsi_display_validate_mode(struct dsi_display *display,
 		}
 	}
 
+    if( display->panel == NULL ||  display->panel->cur_mode == NULL || display->panel->cur_mode->timing.refresh_rate != adj_mode.timing.refresh_rate ) {
+       	WRITE_ONCE(cur_refresh_rate, mode->timing.refresh_rate);
+    }
+
 error:
 	mutex_unlock(&display->display_lock);
 	return rc;
@@ -6861,6 +6928,10 @@ int dsi_display_set_mode(struct dsi_display *display,
 			goto error;
 		}
 	}
+
+    if( display->panel->cur_mode->timing.refresh_rate != adj_mode.timing.refresh_rate ) {
+       	WRITE_ONCE(cur_refresh_rate, mode->timing.refresh_rate);
+    }
 
 	memcpy(display->panel->cur_mode, &adj_mode, sizeof(adj_mode));
 error:

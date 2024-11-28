@@ -108,22 +108,25 @@ enum print_reason {
 
 #define JEITA_VOTER                     "JEITA_VOTER"
 
+#define BYPASS_VOTER			"BYPASS_VOTER"
+#define LIMIT_VOTER			"LIMIT_VOTER"
+
 #define BOOST_BACK_STORM_COUNT	3
 #define WEAK_CHG_STORM_COUNT	8
 
 /* defined for distinguish qc class_a and class_b */
 #define VOL_THR_FOR_QC_CLASS_AB		12300000
 #define COMP_FOR_LOW_RESISTANCE_CABLE	100000
-#define QC_CLASS_A_CURRENT_UA		3600000
-#define HVDCP_CLASS_A_MAX_UA		2500000
-#define HVDCP_CLASS_A_FOR_CP_UA		2000000
+#define QC_CLASS_A_CURRENT_UA		4600000
+#define HVDCP_CLASS_A_MAX_UA		3000000
+#define HVDCP_CLASS_A_FOR_CP_UA		3000000
 
 #define MAX_PULSE			38
 #define MAX_PLUSE_COUNT_ALLOWED		23
 #define HIGH_NUM_PULSE_THR		12
 
 /* defined for charger type recheck */
-#define CHARGER_RECHECK_DELAY_MS	30000
+#define CHARGER_RECHECK_DELAY_MS	15000
 #define TYPE_RECHECK_TIME_5S	5000
 #define TYPE_RECHECK_COUNT	3
 
@@ -153,17 +156,17 @@ enum hvdcp3_type {
 #define SDP_100_MA			100000
 #define SDP_CURRENT_UA			500000
 #define CDP_CURRENT_UA			1500000
-#define DCP_CURRENT_UA			1800000 //HTH-99130 set DCP CURRENT TO 1.8A
-#define FLOAT_CURRENT_UA		1000000
-#define HVDCP_CURRENT_UA		3000000
-#define HVDCP_CLASS_B_CURRENT_UA		3100000
-#define HVDCP2_CURRENT_UA		1500000
+#define DCP_CURRENT_UA			2400000 //HTH-99130 set DCP CURRENT TO 1.8A
+#define FLOAT_CURRENT_UA		1500000
+#define HVDCP_CURRENT_UA		4600000
+#define HVDCP_CLASS_B_CURRENT_UA		4600000
+#define HVDCP2_CURRENT_UA		1800000
 #define HVDCP_START_CURRENT_UA		1000000
 #define HVDCP_START_CURRENT_UA_FOR_BQ	500000
 #define SUSPEND_CURRENT_UA		2000
 #define TYPEC_DEFAULT_CURRENT_UA	900000
 #define TYPEC_MEDIUM_CURRENT_UA		1500000
-#define TYPEC_HIGH_CURRENT_UA		3000000
+#define TYPEC_HIGH_CURRENT_UA		4000000
 #define HVDCP3p5_40W_CURRENT_UA                4500000
 #define DCIN_ICL_MIN_UA			100000
 #define DCIN_ICL_MAX_UA			1500000
@@ -180,10 +183,10 @@ enum hvdcp3_type {
 /* six pin new battery step charge micros */
 #define MAX_STEP_ENTRIES			3
 #define MAX_COUNT_OF_IBAT_STEP			2
-#define TAPER_DECREASE_FCC_UA			100000
+#define TAPER_DECREASE_FCC_UA			50000
 #define TAPER_IBAT_TRH_HYS_UA			50000
 #define MIN_TAPER_FCC_THR_UA			2000000
-#define TAPER_BATT_CAPACITY_THR			35
+#define TAPER_BATT_CAPACITY_THR			100
 
 #define STEP_CHG_DELAYED_MONITOR_MS			10000
 #define STEP_CHG_DELAYED_QUICK_MONITOR_MS			2000
@@ -193,14 +196,14 @@ enum hvdcp3_type {
 #define MAIN_ICL_MIN_VOTER		"MAIN_ICL_MIN_VOTER"
 #define SIX_PIN_VFLOAT_VOTER		"SIX_PIN_VFLOAT_VOTER"
 #define DYN_ADJ_FCC_VOTER		"DYN_ADJ_FCC_VOTER"
-#define WARM_VFLOAT_UV			4100000
+#define WARM_VFLOAT_UV			4400000
 #define DYN_ADJ_FCC_MAX_UA		6000000
 #define DYN_ADJ_FCC_MIN_UA		5000000
 #define DYN_ADJ_FCC_OFFSET_UA		50000
 /* ffc related */
 #define NON_FFC_VFLOAT_VOTER			"NON_FFC_VFLOAT_VOTER"
 #define NON_FFC_VFLOAT_UV			4450000
-#define PD_UNVERIFED_CURRENT		4800000
+#define PD_UNVERIFED_CURRENT		6800000
 /* used for bq charge pump solution */
 #define MAIN_CHARGER_ICL	2000000
 #define QC3_CHARGER_ICL		500000
@@ -627,6 +630,7 @@ struct smb_charger {
 	bool			system_suspend_supported;
 	int			boost_threshold_ua;
 	int			system_temp_level;
+    int         active_system_temp_level;
 	int			thermal_levels;
 	int			*thermal_mitigation;
 	int			dcp_icl_ua;

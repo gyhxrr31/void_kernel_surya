@@ -61,10 +61,10 @@
 
 #define LIMITS_FREQ_CAP			0x46434150
 
-#define LIMITS_TEMP_DEFAULT		75000
-#define LIMITS_TEMP_HIGH_THRESH_MAX	120000
-#define LIMITS_LOW_THRESHOLD_OFFSET	500
-#define LIMITS_POLLING_DELAY_MS		10
+#define LIMITS_TEMP_DEFAULT		120000
+#define LIMITS_TEMP_HIGH_THRESH_MAX	125000
+#define LIMITS_LOW_THRESHOLD_OFFSET	1000
+#define LIMITS_POLLING_DELAY_MS		50
 #define LIMITS_CLUSTER_REQ_OFFSET	0x704
 #define LIMITS_CLUSTER_INT_CLR_OFFSET	0x8
 #define LIMITS_CLUSTER_MIN_FREQ_OFFSET	0x3C0
@@ -190,6 +190,7 @@ static unsigned long limits_mitigation_notify(struct limits_dcvs_hw *hw)
 	if (max_cpu_ct == cpumask_weight(&hw->core_map))
 		max_limit = max_cpu_limit;
 	sched_update_cpu_freq_min_max(&hw->core_map, 0, max_limit);
+	arch_set_max_thermal_scale(&hw->core_map, max_limit);
 	pr_debug("CPU:%d max limit:%lu\n", cpumask_first(&hw->core_map),
 			max_limit);
 	trace_lmh_dcvs_freq(cpumask_first(&hw->core_map), max_limit);
@@ -304,6 +305,9 @@ static int lmh_set_trips(void *data, int low, int high)
 	struct limits_dcvs_hw *hw = (struct limits_dcvs_hw *)data;
 	int ret = 0;
 
+    if( low == INT_MIN ) low = high - 3000;
+    if( high == INT_MAX ) high = low + 3000;
+
 	if (high >= LIMITS_TEMP_HIGH_THRESH_MAX || low < 0) {
 		pr_err("Value out of range low:%d high:%d\n",
 				low, high);
@@ -314,23 +318,32 @@ static int lmh_set_trips(void *data, int low, int high)
 	if (low >= high)
 		return -EINVAL;
 
+    pr_info("LIMITS_TRIP_HI:%d, LIMITS_TRIP_ARM:%d", high, low);
 	hw->temp_limits[LIMITS_TRIP_HI] = (uint32_t)high;
 	hw->temp_limits[LIMITS_TRIP_ARM] = (uint32_t)low;
 
 	ret =  limits_dcvs_write(hw->affinity, LIMITS_SUB_FN_THERMAL,
 				  LIMITS_ARM_THRESHOLD, low, 0, 0);
-	if (ret)
+	if (ret) {
+        pr_err("LIMITS_ARM_THRESHOLD set error %d", ret);
 		return ret;
+    }
+
 	ret =  limits_dcvs_write(hw->affinity, LIMITS_SUB_FN_THERMAL,
 				  LIMITS_HI_THRESHOLD, high, 0, 0);
-	if (ret)
+	if (ret) {
+        pr_err("LIMITS_HI_THRESHOLD set error %d", ret);
 		return ret;
+    }
+
 	ret =  limits_dcvs_write(hw->affinity, LIMITS_SUB_FN_THERMAL,
 				  LIMITS_LOW_THRESHOLD,
 				  high - LIMITS_LOW_THRESHOLD_OFFSET,
 				  0, 0);
-	if (ret)
+	if (ret) {
+        pr_err("LIMITS_LOW_THRESHOLD set error %d", ret);
 		return ret;
+    }
 
 	return ret;
 }

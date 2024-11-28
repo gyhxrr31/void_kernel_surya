@@ -210,18 +210,21 @@ static void *usbpd_ipc_log;
 	ipc_log_string(usbpd_ipc_log, "%s: %s: " fmt, dev_name(dev), __func__, \
 			##__VA_ARGS__); \
 	dev_info(dev, fmt, ##__VA_ARGS__); \
+    pr_info(fmt, ##__VA_ARGS__); \
 	} while (0)
 
 #define usbpd_warn(dev, fmt, ...) do { \
 	ipc_log_string(usbpd_ipc_log, "%s: %s: " fmt, dev_name(dev), __func__, \
 			##__VA_ARGS__); \
 	dev_warn(dev, fmt, ##__VA_ARGS__); \
+    pr_warn(fmt, ##__VA_ARGS__); \
 	} while (0)
 
 #define usbpd_err(dev, fmt, ...) do { \
 	ipc_log_string(usbpd_ipc_log, "%s: %s: " fmt, dev_name(dev), __func__, \
 			##__VA_ARGS__); \
 	dev_err(dev, fmt, ##__VA_ARGS__); \
+    pr_err(fmt, ##__VA_ARGS__); \
 	} while (0)
 
 #define NUM_LOG_PAGES		10
@@ -5130,10 +5133,13 @@ int usbpd_select_pdo(struct usbpd *pd, int pdo, int uv, int ua)
 
 	mutex_lock(&pd->swap_lock);
 
-	if (pd->verify_process)
+	if (pd->verify_process) {
+		usbpd_err(&pd->dev, "select_pdo: verify_process on PDO:%d\n", pdo);
 		goto out;
+    }
 
 	if (pd->current_pr != PR_SINK) {
+		usbpd_err(&pd->dev, "select_pdo: invalid state for PDO:%d\n", pdo);
 		ret = -ENOTSUPP;
 		goto out;
 	}
@@ -5152,8 +5158,10 @@ int usbpd_select_pdo(struct usbpd *pd, int pdo, int uv, int ua)
 	}
 
 	ret = pd_select_pdo_for_bq(pd, pdo, uv, ua);
-	if (ret)
+	if (ret) {
+		usbpd_err(&pd->dev, "select_pdo: pd_select_pdo_for_bq failed for PDO:%d with rc = %d\n", pdo, ret);
 		goto out;
+    }
 
 	reinit_completion(&pd->is_ready);
 	pd->send_request = true;
@@ -5161,7 +5169,7 @@ int usbpd_select_pdo(struct usbpd *pd, int pdo, int uv, int ua)
 
 	/* wait for operation to complete */
 	if (!wait_for_completion_timeout(&pd->is_ready,
-			msecs_to_jiffies(1000))) {
+			msecs_to_jiffies(1500))) {
 		usbpd_err(&pd->dev, "select_pdo: request timed out\n");
 		ret = -ETIMEDOUT;
 		goto out;
@@ -5507,3 +5515,4 @@ module_exit(usbpd_exit);
 
 MODULE_DESCRIPTION("USB Power Delivery Policy Engine");
 MODULE_LICENSE("GPL v2");
+

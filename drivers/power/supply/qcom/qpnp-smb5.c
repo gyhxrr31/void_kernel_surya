@@ -40,6 +40,9 @@
 #include <linux/notifier.h>
 #include <linux/msm_drm_notify.h>
 #include <linux/fb.h>
+
+#include "name_helper.h"
+
 union power_supply_propval lct_therm_lvl_reserved;
 union power_supply_propval lct_therm_level;
 union power_supply_propval lct_therm_call_level = {LCT_THERM_CALL_LEVEL,};
@@ -539,8 +542,17 @@ static int smb5_parse_dt(struct smb5 *chip)
 	chip->dt.no_battery = of_property_read_bool(node,
 						"qcom,batteryless-platform");
 
-	rc = of_property_read_u32(node,
-			"qcom,fcc-max-ua", &chip->dt.batt_profile_fcc_ua);
+    if ((strnstr(saved_command_line, "androidboot.hwname=karna", strlen(saved_command_line)) != NULL) ) {
+    	rc = of_property_read_u32(node,
+			"qcom,fcc-max-ua-karna", &chip->dt.batt_profile_fcc_ua);
+            //chip->dt.batt_profile_fcc_ua = 6000000;
+			dev_err(chg->dev,"karna: batt_profile_fcc_ua = %d\n", chip->dt.batt_profile_fcc_ua);
+    } else {
+    	rc = of_property_read_u32(node,
+			"qcom,fcc-max-ua-surya", &chip->dt.batt_profile_fcc_ua);
+            //chip->dt.batt_profile_fcc_ua = 5000000;
+			dev_err(chg->dev,"surya: batt_profile_fcc_ua = %d\n", chip->dt.batt_profile_fcc_ua);
+    }
 	if (rc < 0)
 		chip->dt.batt_profile_fcc_ua = -EINVAL;
 
@@ -1035,10 +1047,10 @@ static int smb5_usb_get_prop(struct power_supply *psy,
 		val->intval = get_client_vote(chg->usb_icl_votable, PD_VOTER);
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
-		if (smblib_get_fastcharge_mode(chg))
-			val->intval = 3000000;
+        if (smblib_get_fastcharge_mode(chg))
+			val->intval = 6000000;
 		else
-			val->intval = get_effective_result(chg->usb_icl_votable);
+		    rc = smblib_get_prop_input_current_max(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_TYPE:
 		val->intval = POWER_SUPPLY_TYPE_USB_PD;
@@ -1210,20 +1222,20 @@ static int smb5_usb_get_prop(struct power_supply *psy,
 								QC3P5_VOTER);
 		break;
 	default:
-		pr_err("get prop %d is not supported in usb\n", psp);
+		pr_err("get prop %d (%s) is not supported in usb\n", psp, get_property_name(psp));
 		rc = -EINVAL;
 		break;
 	}
 
 	if (rc < 0) {
-		pr_debug("Couldn't get prop %d rc = %d\n", psp, rc);
+		pr_err("Couldn't get prop %d (%s) rc = %d\n", psp, get_property_name(psp), rc);
 		return -ENODATA;
 	}
 
 	return 0;
 }
 
-#define MIN_THERMAL_VOTE_UA	500000
+#define MIN_THERMAL_VOTE_UA	900000
 static int smb5_usb_set_prop(struct power_supply *psy,
 		enum power_supply_property psp,
 		const union power_supply_propval *val)
@@ -1425,13 +1437,13 @@ static int smb5_usb_port_get_prop(struct power_supply *psy,
 		rc = smblib_get_prop_input_current_settled(chg, val);
 		break;
 	default:
-		pr_err_ratelimited("Get prop %d is not supported in pc_port\n",
-				psp);
+		pr_err("Get prop %d (%s) is not supported in pc_port\n",
+				psp, get_property_name(psp));
 		return -EINVAL;
 	}
 
 	if (rc < 0) {
-		pr_debug("Couldn't get prop %d rc = %d\n", psp, rc);
+		pr_err("Couldn't get prop %d (%s) rc = %d\n", psp, get_property_name(psp), rc);
 		return -ENODATA;
 	}
 
@@ -1515,6 +1527,9 @@ static int smb5_usb_main_get_prop(struct power_supply *psy,
 	int rc = 0;
 
 	switch (psp) {
+	case POWER_SUPPLY_PROP_ONLINE:
+		rc = smblib_get_prop_usb_online(chg, val);
+        break;
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
 		rc = smblib_get_charge_param(chg, &chg->param.fv, &val->intval);
 		break;
@@ -1524,6 +1539,12 @@ static int smb5_usb_main_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_TYPE:
 		val->intval = POWER_SUPPLY_TYPE_MAIN;
+		break;
+	case POWER_SUPPLY_PROP_TYPEC_MODE:
+		if (chg->connector_type == POWER_SUPPLY_CONNECTOR_MICRO_USB)
+			val->intval = POWER_SUPPLY_TYPEC_NONE;
+		else
+			val->intval = chg->typec_mode;
 		break;
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_SETTLED:
 		rc = smblib_get_prop_input_current_settled(chg, val);
@@ -1574,12 +1595,15 @@ static int smb5_usb_main_get_prop(struct power_supply *psy,
 		val->intval = chg->thermal_overheat;
 		break;
 	default:
-		pr_debug("get prop %d is not supported in usb-main\n", psp);
+		pr_err("get prop %d (%s) is not supported in usb-main\n", psp, get_property_name(psp));
+		dump_stack();
 		rc = -EINVAL;
 		break;
 	}
-	if (rc < 0)
-		pr_err("Couldn't get prop %d rc = %d\n", psp, rc);
+	if (rc < 0){
+		pr_err("Couldn't get prop %d (%s) rc = %d\n", psp, get_property_name(psp), rc);
+		dump_stack();
+	}
 
 	return rc;
 }
@@ -1645,8 +1669,8 @@ static int smb5_usb_main_set_prop(struct power_supply *psy,
 		rc = smblib_toggle_smb_en(chg, val->intval);
 		break;
 	case POWER_SUPPLY_PROP_MAIN_FCC_MAX:
-		chg->main_fcc_max = val->intval;
-		rerun_election(chg->fcc_votable);
+		//chg->main_fcc_max = val->intval;
+		//rerun_election(chg->fcc_votable);
 		break;
 	case POWER_SUPPLY_PROP_FORCE_MAIN_FCC:
 		vote_override(chg->fcc_main_votable, CC_MODE_VOTER,
@@ -1687,7 +1711,7 @@ static int smb5_usb_main_prop_is_writeable(struct power_supply *psy,
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_TOGGLE_STAT:
-	case POWER_SUPPLY_PROP_MAIN_FCC_MAX:
+	//case POWER_SUPPLY_PROP_MAIN_FCC_MAX:
 	case POWER_SUPPLY_PROP_FORCE_MAIN_FCC:
 	case POWER_SUPPLY_PROP_FORCE_MAIN_ICL:
 	case POWER_SUPPLY_PROP_COMP_CLAMP_LEVEL:
@@ -1783,10 +1807,11 @@ static int smb5_dc_get_prop(struct power_supply *psy,
 		rc = smblib_get_prop_voltage_wls_output(chg, val);
 		break;
 	default:
+		pr_err("get prop %d (%s) is not supported in usb-main\n", psp, get_property_name(psp));
 		return -EINVAL;
 	}
 	if (rc < 0) {
-		pr_debug("Couldn't get prop %d rc = %d\n", psp, rc);
+		pr_err("Couldn't get prop %d (%s) rc = %d\n", psp, get_property_name(psp), rc);
 		return -ENODATA;
 	}
 	return 0;
@@ -1865,6 +1890,7 @@ static int smb5_init_dc_psy(struct smb5 *chip)
 /*************************
  * BATT PSY REGISTRATION *
  *************************/
+
 static enum power_supply_property smb5_batt_props[] = {
 	POWER_SUPPLY_PROP_INPUT_SUSPEND,
 	POWER_SUPPLY_PROP_STATUS,
@@ -2083,12 +2109,14 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 		rc = smblib_get_prop_batt_awake(chg, val);
 		break;
 	default:
-		pr_err("batt power supply prop %d not supported\n", psp);
+		pr_err("batt power supply prop %d (%s) not supported\n", psp, get_property_name(psp));
+		dump_stack();
 		return -EINVAL;
 	}
 
 	if (rc < 0) {
-		pr_debug("Couldn't get prop %d rc = %d\n", psp, rc);
+		pr_debug("Couldn't get prop %d (%s) rc = %d\n", psp, get_property_name(psp), rc);
+		dump_stack();
 		return -ENODATA;
 	}
 
@@ -2195,12 +2223,14 @@ static int smb5_batt_set_prop(struct power_supply *psy,
 		chg->fcc_stepper_enable = val->intval;
 		break;
 	case POWER_SUPPLY_PROP_BATTERY_CHARGING_ENABLED:
+        pr_info("POWER_SUPPLY_PROP_BATTERY_CHARGING_ENABLED:%d",chg->use_bq_pump);
 		if (chg->use_bq_pump) {
 			if (val->intval == 0) {
-				if (chg->six_pin_step_charge_enable)
+				if (chg->six_pin_step_charge_enable) {
 					vote(chg->usb_icl_votable, MAIN_ICL_MIN_VOTER,
 								true, MAIN_ICL_MIN);
-				else
+                    dump_stack();
+				} else
 					vote(chg->usb_icl_votable, MAIN_CHG_SUSPEND_VOTER,
 								true, 0);
 			} else {
@@ -2217,6 +2247,7 @@ static int smb5_batt_set_prop(struct power_supply *psy,
 		rc = smblib_set_prop_battery_charging_enabled(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_BATTERY_CHARGING_LIMITED:
+        pr_info("POWER_SUPPLY_PROP_BATTERY_CHARGING_LIMITED:%d",chg->use_bq_pump);
 		if (chg->use_bq_pump) {
 			if (val->intval == 0) {
 				vote(chg->usb_icl_votable, MAIN_CHG_VOTER,
@@ -3966,17 +3997,14 @@ static int thermal_notifier_callback(struct notifier_block *noti, unsigned long 
 	struct fb_event *ev_data = data;
 	struct smb_charger *chg = container_of(noti, struct smb_charger, notifier);
 	int *blank;
-	printk("%s %d",__FUNCTION__,__LINE__);
 	if (ev_data && ev_data->data && chg) {
 		blank = ev_data->data;
 		if (event == MSM_DRM_EARLY_EVENT_BLANK && *blank == MSM_DRM_BLANK_UNBLANK) {
 			lct_backlight_off = false;
-			pr_info("thermal_notifier lct_backlight_off:%d",lct_backlight_off);
 			schedule_work(&chg->fb_notify_work);
 		}
 		else if (event == MSM_DRM_EVENT_BLANK && *blank == MSM_DRM_BLANK_POWERDOWN) {
 			lct_backlight_off = true;
-			pr_info("thermal_notifier lct_backlight_off:%d",lct_backlight_off);
 			schedule_work(&chg->fb_notify_work);
 		}
 	}
@@ -4048,7 +4076,7 @@ static void step_otg_chg_work(struct work_struct *work)
 	}
 
 	temp = prop.intval;
-	pr_err("longcheer ,%s:temp=%d\n",__func__,temp);
+	pr_debug("longcheer ,%s:temp=%d\n",__func__,temp);
 
 	otg_chg_current_temp = lct_get_otg_chg_current(temp);
 
@@ -4056,7 +4084,7 @@ static void step_otg_chg_work(struct work_struct *work)
 		goto exit_work;
 	else
 		chg->otg_chg_current = otg_chg_current_temp;
-	pr_err("longcheer ,%s:otg_chg_current=%d\n",__func__,chg->otg_chg_current);
+	pr_debug("longcheer ,%s:otg_chg_current=%d\n",__func__,chg->otg_chg_current);
 
 	rerun_reverse_check(chg);
 
@@ -4073,7 +4101,7 @@ static int step_otg_chg_notifier_call(struct notifier_block *nb,
 
 	if (event != PSY_EVENT_PROP_CHANGED)
 		return NOTIFY_OK;
-	pr_err("longcheer ,%s:reverse_charge_state=%d\n",__func__,chg->reverse_charge_state);
+	pr_debug("longcheer ,%s:reverse_charge_state=%d\n",__func__,chg->reverse_charge_state);
 	if(!chg->reverse_charge_state)
 		return NOTIFY_OK;
 

@@ -70,8 +70,8 @@ enum pm_state {
 #define BQ_TAPER_FCC_VOTER	"BQ_TAPER_FCC_VOTER"
 
 /* defined for non_verified pps charger maxium fcc */
-#define NON_VERIFIED_PPS_FCC_MAX		3000
-#define MAX_THERMAL_LEVEL			13
+#define NON_VERIFIED_PPS_FCC_MAX		6400
+#define MAX_THERMAL_LEVEL			16
 /* jeita related */
 #define JEITA_WARM_THR			580
 #define JEITA_COOL_NOT_ALLOW_CP_THR			50
@@ -91,11 +91,11 @@ enum pm_state {
 #define PPS_VOL_MAX			11000
 #define PPS_VOL_HYS			1000
 
-#define STEP_MV			20
-#define TAPER_VOL_HYS			80
-#define TAPER_WITH_IBUS_HYS			60
-#define TAPER_IBUS_THR			450
-#define BQ_TAPER_HYS_MV			10
+#define STEP_MV			25
+#define TAPER_VOL_HYS			50
+#define TAPER_WITH_IBUS_HYS			20
+#define TAPER_IBUS_THR			250
+#define BQ_TAPER_HYS_MV			1
 #define BQ_TAPER_DECREASE_STEP_MA			200
 struct sw_device {
 	bool charge_enabled;

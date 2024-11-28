@@ -902,12 +902,16 @@ TRACE_EVENT(sched_load_cfs_rq,
 		__entry->util_pelt = cfs_rq->avg.util_avg;
 		__entry->util_walt = 0;
 #ifdef CONFIG_SCHED_WALT
+
+#ifdef CONFIG_FAIR_GROUP_SCHED
 		if (&cfs_rq->rq->cfs == cfs_rq) {
 			walt_util(__entry->util_walt,
 				  cfs_rq->rq->prev_runnable_sum);
 			if (!walt_disabled && sysctl_sched_use_walt_cpu_util)
 				__entry->util = __entry->util_walt;
 		}
+#endif
+
 #endif
 	),
 
@@ -978,12 +982,14 @@ TRACE_EVENT(sched_load_se,
 		__entry->util_pelt  = __entry->util;
 		__entry->util_walt  = 0;
 #ifdef CONFIG_SCHED_WALT
+#ifdef CONFIG_FAIR_GROUP_SCHED
 		if (!se->my_q) {
 			struct task_struct *p = container_of(se, struct task_struct, se);
 			__entry->util_walt = p->ravg.demand / (sched_ravg_window >> SCHED_CAPACITY_SHIFT);
 			if (!walt_disabled && sysctl_sched_use_walt_task_util)
 				__entry->util = __entry->util_walt;
 		}
+#endif
 #endif
 	),
 

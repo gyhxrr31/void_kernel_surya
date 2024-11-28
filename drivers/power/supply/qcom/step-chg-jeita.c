@@ -276,7 +276,7 @@ static int get_step_chg_jeita_setting_from_profile(struct step_chg_info *chip)
 		return -EBUSY;
 	}
 
-	pr_err("longcheer get battery type: %s\n", prop.strval);
+	pr_info("longcheer get battery type: %s\n", prop.strval);
 
 	if ((strcmp(prop.strval, DEFAULT_BATT_TYPE) == 0)
 		|| (strcmp(prop.strval, MISSING_BATT_TYPE) == 0)
@@ -841,13 +841,13 @@ static int handle_jeita(struct step_chg_info *chip)
 	batt_soc = pval.intval;
 	rc = power_supply_get_property(chip->bms_psy,
 			POWER_SUPPLY_PROP_FASTCHARGE_MODE, &pval);
-	pr_err("%s:fastcharge_mode=%d\n", __func__, pval.intval);
 	if (rc < 0) {
 		pr_err("Couldn't read fastcharge mode fail rc=%d\n", rc);
 		return rc;
 	}
+	
 	if (pval.intval) {
-		if (batt_soc < 95) {
+		if (batt_soc <= 99) {
 		rc = power_supply_get_property(chip->batt_psy,
 				POWER_SUPPLY_PROP_CHARGE_TERM_CURRENT, &pval);
 		chg_term_current = pval.intval;
@@ -878,9 +878,6 @@ static int handle_jeita(struct step_chg_info *chip)
 	if (!chip->usb_icl_votable)
 		goto set_jeita_fv;
 
-	pr_err("%s = %d FCC = %duA FV = %duV\n",
-		chip->jeita_fcc_config->param.prop_name, batt_temp, fcc_ua, fv_uv);
-
 	/* set and clear fast charge mode when soft jeita trigger and clear */
 	rc = power_supply_get_property(chip->usb_psy,
 			POWER_SUPPLY_PROP_PD_AUTHENTICATION, &pval);
@@ -908,7 +905,6 @@ static int handle_jeita(struct step_chg_info *chip)
 		(hvdcp3_charger_type == STEP_HVDCP3_CLASSB_27W)) {
 		if ((temp >= BATT_WARM_THRESHOLD || temp <= BATT_COOL_THRESHOLD)
 					&& !fast_mode_dis) {
-			pr_err("temp:%d disable fastcharge mode\n", temp);
 			pval.intval = false;
 			rc = power_supply_set_property(chip->usb_psy,
 					POWER_SUPPLY_PROP_FASTCHARGE_MODE, &pval);
@@ -920,7 +916,6 @@ static int handle_jeita(struct step_chg_info *chip)
 		} else if ((temp < BATT_WARM_THRESHOLD - chip->jeita_fv_config->param.hysteresis)
 					&& (temp > BATT_COOL_THRESHOLD + chip->jeita_fv_config->param.hysteresis)
 						&& fast_mode_dis) {
-			pr_err("temp:%d enable fastcharge mode\n", temp);
 			pval.intval = true;
 			rc = power_supply_set_property(chip->usb_psy,
 					POWER_SUPPLY_PROP_FASTCHARGE_MODE, &pval);

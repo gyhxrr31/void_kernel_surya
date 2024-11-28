@@ -50,6 +50,10 @@
 
 #define DWC3_DEFAULT_AUTOSUSPEND_DELAY	500 /* ms */
 
+bool usb_keep_awake_connected = true;
+module_param(usb_keep_awake_connected, bool, 0664);
+
+
 static int count;
 static struct dwc3 *dwc3_instance[DWC_CTRL_COUNT];
 

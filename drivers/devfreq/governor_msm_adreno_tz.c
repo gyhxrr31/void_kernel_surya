@@ -367,11 +367,11 @@ static int tz_get_target_freq(struct devfreq *devfreq, unsigned long *freq)
 	 * has passed since the last run or the gpu hasn't been
 	 * busier than MIN_BUSY.
 	 */
-	if ((stats.total_time == 0) ||
+	/*if ((stats.total_time == 0) ||
 		(priv->bin.total_time < FLOOR) ||
 		(unsigned int) priv->bin.busy_time < MIN_BUSY) {
 		return 0;
-	}
+	}*/
 
 	level = devfreq_get_freq_level(devfreq, stats.current_frequency);
 	if (level < 0) {
@@ -391,9 +391,9 @@ static int tz_get_target_freq(struct devfreq *devfreq, unsigned long *freq)
 
 		scm_data[0] = level;
 		scm_data[1] = priv->bin.total_time;
-		if (refresh_rate > 60)
-			scm_data[2] = priv->bin.busy_time * refresh_rate / 60;
-		else
+		//if (refresh_rate > 60)
+		//	scm_data[2] = priv->bin.busy_time * refresh_rate / 60;
+		//else
 			scm_data[2] = priv->bin.busy_time;
 		scm_data[3] = context_count;
 		__secure_tz_update_entry3(scm_data, sizeof(scm_data),

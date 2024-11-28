@@ -157,8 +157,6 @@ static int qg_process_tcss_soc(struct qpnp_qg *chip, int sys_soc)
 		qg_iterm_ua = -1 * prop.intval;
 	}
 
-	pr_err("[%s] qg_iterm_ua=%d\n", __func__, qg_iterm_ua);
-
 	rc = power_supply_get_property(chip->batt_psy,
 			POWER_SUPPLY_PROP_HEALTH, &prop);
 	if (!rc && (prop.intval == POWER_SUPPLY_HEALTH_COOL ||
@@ -317,7 +315,7 @@ int qg_adjust_sys_soc(struct qpnp_qg *chip)
 		rc = qg_get_vbat_avg(chip, &vbat_uv);
 		if (!rc && (vbat_uv >= (vcutoff_uv + VBAT_LOW_HYST_UV))) {
 			soc = 1;
-			qg_dbg(chip, QG_DEBUG_SOC, "vbat_uv=%duV holding SOC to 1%\n",
+			qg_dbg(chip, QG_DEBUG_SOC, "vbat_uv=%duV holding SOC to 1\n",
 						vbat_uv);
 		}
 	}

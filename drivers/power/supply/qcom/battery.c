@@ -1291,6 +1291,9 @@ static int usb_icl_vote_callback(struct votable *votable, void *data,
 	if (client == NULL)
 		icl_ua = INT_MAX;
 
+    pr_info("usb_icl_vote_callback: icl_ua=%d", icl_ua);
+    
+
 	/*
 	 * Disable parallel for new ICL vote - the call to split_settled will
 	 * ensure that all the input current limit gets assigned to the main
@@ -1323,23 +1326,27 @@ static int usb_icl_vote_callback(struct votable *votable, void *data,
 		return rc;
 	}
 
+    pr_info("usb_icl_vote_callback: settled icl=%d", pval.intval);
+
 	/* rerun AICL if new ICL is above settled ICL */
 	if (icl_ua > pval.intval)
 		rerun_aicl = true;
 
-	if (rerun_aicl && (chip->wa_flags & AICL_RERUN_WA_BIT)) {
+	if (rerun_aicl && (chip->wa_flags & AICL_RERUN_WA_BIT) && pval.intval > 500000) {
 		/* set a lower ICL */
 		pval.intval = max(pval.intval - ICL_STEP_UA, ICL_STEP_UA);
 		power_supply_set_property(chip->main_psy,
 				POWER_SUPPLY_PROP_CURRENT_MAX,
 				&pval);
-	}
 
-	/* set the effective ICL */
-	pval.intval = icl_ua;
-	power_supply_set_property(chip->main_psy,
-			POWER_SUPPLY_PROP_CURRENT_MAX,
-			&pval);
+        pr_info("usb_icl_vote_callback: rerun aicl. set icl=%d", pval.intval);
+	} else {
+	    /* set the effective ICL */
+    	pval.intval = icl_ua;
+    	power_supply_set_property(chip->main_psy,
+		    	POWER_SUPPLY_PROP_CURRENT_MAX,
+    			&pval);
+    }
 
 	vote(chip->pl_disable_votable, ICL_CHANGE_VOTER, false, 0);
 

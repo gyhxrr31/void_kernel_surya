@@ -74,20 +74,20 @@ enum hvdcp3_type {
 };
 
 #define MAIN_CHG_VOTER                  "MAIN_CHG_VOTER"
-#define QC3_MAIN_CHARGER_ICL            2000000
-#define QC3_CHARGER_ICL                 500000
+#define QC3_MAIN_CHARGER_ICL            2700000
+#define QC3_CHARGER_ICL                 5400000
 
 #define QC3P5_BQ_TAPER_FCC_VOTER       "QC3P5_BQ_TAPER_FCC_VOTER"
-#define QC3P5_BQ_TAPER_HYS_MV                  30
+#define QC3P5_BQ_TAPER_HYS_MV                  2
 #define QC3P5_BQ_TAPER_DECREASE_STEP_MA                        200
 
 #define HVDCP3_CLASS_B_BAT_CURRENT_MA			5400
 #define HVDCP3_CLASS_B_BUS_CURRENT_MA			2700
-#define HVDCP3_CLASS_A_BAT_CURRENT_MA			3600
-#define HVDCP3_CLASS_A_BUS_CURRENT_MA			2100
-#define HVDCP3P5_BUS_CURRENT_MA                                2400
-#define HVDCP3P5_BAT_CURRENT_MA                                4500
-#define MAX_THERMAL_LEVEL			13
+#define HVDCP3_CLASS_A_BAT_CURRENT_MA			5400
+#define HVDCP3_CLASS_A_BUS_CURRENT_MA			2700
+#define HVDCP3P5_BUS_CURRENT_MA                                2700
+#define HVDCP3P5_BAT_CURRENT_MA                                5400
+#define MAX_THERMAL_LEVEL			16
 /* jeita related */
 #define JEITA_WARM_THR			450
 #define JEITA_COOL_NOT_ALLOW_CP_THR			100
@@ -98,7 +98,7 @@ enum hvdcp3_type {
  */
 #define JEITA_HYSTERESIS			20
 
-#define HIGH_CAPACITY_TRH			90
+#define HIGH_CAPACITY_TRH			100
 
 
 struct flash2_policy {

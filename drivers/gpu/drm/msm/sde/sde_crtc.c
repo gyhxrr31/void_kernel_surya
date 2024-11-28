@@ -821,6 +821,99 @@ static ssize_t fps_periodicity_show(struct device *device,
 		(sde_crtc->fps_info.fps_periodic_duration)/MILI_TO_MICRO);
 }
 
+extern unsigned int cur_refresh_rate;
+
+static ssize_t baikal_measured_fps_show(struct device *device,
+		struct device_attribute *attr, char *buf)
+{
+
+	struct drm_crtc *crtc;
+	struct sde_crtc *sde_crtc;
+	uint64_t fps_int, fps_decimal, baikal_fps;
+	u64 fps = 0, frame_count = 0;
+	ktime_t current_time;
+	int i = 0, current_time_index;
+	u64 diff_us;
+
+	if (!device || !buf) {
+		SDE_ERROR("invalid input param(s)\n");
+		return -EAGAIN;
+	}
+
+	crtc = dev_get_drvdata(device);
+	if (!crtc) {
+		scnprintf(buf, PAGE_SIZE, "fps information not available");
+		return -EINVAL;
+	}
+
+	sde_crtc = to_sde_crtc(crtc);
+
+	if (!sde_crtc->fps_info.time_buf) {
+		scnprintf(buf, PAGE_SIZE,
+				"timebuf null - fps information not available");
+		return -EINVAL;
+	}
+
+	/**
+	 * Whenever the time_index counter comes to zero upon decrementing,
+	 * it is set to the last index since it is the next index that we
+	 * should check for calculating the buftime.
+	 */
+	current_time_index = (sde_crtc->fps_info.next_time_index == 0) ?
+		MAX_FRAME_COUNT - 1 : (sde_crtc->fps_info.next_time_index - 1);
+
+	current_time = ktime_get();
+
+	for (i = 0; i < MAX_FRAME_COUNT; i++) {
+		u64 ptime = (u64)ktime_to_us(current_time);
+		u64 buftime = (u64)ktime_to_us(
+			sde_crtc->fps_info.time_buf[current_time_index]);
+		diff_us = (u64)ktime_us_delta(current_time,
+			sde_crtc->fps_info.time_buf[current_time_index]);
+		if (ptime > buftime && diff_us >= (u64)
+				sde_crtc->fps_info.fps_periodic_duration) {
+
+			/* Multiplying with 10 to get fps in floating point */
+			fps = frame_count * DEFAULT_FPS_PERIOD_1_SEC * 10;
+			do_div(fps, diff_us);
+			sde_crtc->fps_info.measured_fps = (unsigned int)fps;
+			SDE_DEBUG("measured fps: %d\n",
+					sde_crtc->fps_info.measured_fps);
+			break;
+		}
+
+		current_time_index = (current_time_index == 0) ?
+			(MAX_FRAME_COUNT - 1) : (current_time_index - 1);
+		SDE_DEBUG("current time index: %d\n", current_time_index);
+
+		frame_count++;
+	}
+
+	if (i == MAX_FRAME_COUNT) {
+
+		current_time_index = (sde_crtc->fps_info.next_time_index == 0) ?
+		MAX_FRAME_COUNT - 1 : (sde_crtc->fps_info.next_time_index - 1);
+
+		diff_us = (u64)ktime_us_delta(current_time,
+			sde_crtc->fps_info.time_buf[current_time_index]);
+
+		if (diff_us >= sde_crtc->fps_info.fps_periodic_duration) {
+
+			/* Multiplying with 10 to get fps in floating point */
+			fps = (frame_count) * DEFAULT_FPS_PERIOD_1_SEC * 10;
+			do_div(fps, diff_us);
+			sde_crtc->fps_info.measured_fps = (unsigned int)fps;
+		}
+	}
+
+	fps_int = (uint64_t) sde_crtc->fps_info.measured_fps;
+	fps_decimal = do_div(fps_int, 10);
+
+    baikal_fps = fps_decimal > 4 ? fps_int+1 : fps_int;
+
+	return scnprintf(buf, PAGE_SIZE, "%d,%d", baikal_fps, cur_refresh_rate);
+}
+
 static ssize_t measured_fps_show(struct device *device,
 		struct device_attribute *attr, char *buf)
 {
@@ -932,11 +1025,13 @@ static DEVICE_ATTR(measured_fps, 0444, measured_fps_show, NULL);
 static DEVICE_ATTR(fps_periodicity_ms, 0644, fps_periodicity_show,
 							set_fps_periodicity);
 static DEVICE_ATTR_RW(early_wakeup);
+static DEVICE_ATTR(baikal_measured_fps, 0444, baikal_measured_fps_show, NULL);
 static struct attribute *sde_crtc_dev_attrs[] = {
 	&dev_attr_vsync_event.attr,
 	&dev_attr_measured_fps.attr,
 	&dev_attr_fps_periodicity_ms.attr,
 	&dev_attr_early_wakeup.attr,
+	&dev_attr_baikal_measured_fps.attr,
 	NULL
 };
 

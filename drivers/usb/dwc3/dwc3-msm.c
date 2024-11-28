@@ -124,6 +124,8 @@
 #define DWC3_GEVNTADRHI_EVNTADRHI_GSI_IDX(n)	(n << 16)
 #define DWC3_GEVENT_TYPE_GSI			0x3
 
+extern bool usb_keep_awake_connected;
+
 enum usb_gsi_reg {
 	GENERAL_CFG_REG,
 	DBL_ADDR_L,
@@ -2912,7 +2914,7 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 		return 0;
 	}
 
-	pm_stay_awake(mdwc->dev);
+	if( usb_keep_awake_connected ) pm_stay_awake(mdwc->dev);
 
 	if (mdwc->in_host_mode && mdwc->max_rh_port_speed == USB_SPEED_HIGH)
 		dwc3_msm_update_bus_bw(mdwc, BUS_VOTE_SVS);
@@ -5191,7 +5193,7 @@ static int dwc3_msm_pm_suspend(struct device *dev)
 	 * host.
 	 */
 	if (!dwc->ignore_wakeup_src_in_hostmode || !mdwc->in_host_mode) {
-		if (!atomic_read(&dwc->in_lpm)) {
+		if (!atomic_read(&dwc->in_lpm) && usb_keep_awake_connected ) {
 			dev_err(mdwc->dev, "Abort PM suspend!! (USB is outside LPM)\n");
 			return -EBUSY;
 		}
@@ -5202,7 +5204,7 @@ static int dwc3_msm_pm_suspend(struct device *dev)
 	}
 
 	/* Wakeup not required for automotive/telematics platform host mode */
-	ret = dwc3_msm_suspend(mdwc, false, false);
+	ret = dwc3_msm_suspend(mdwc, false, /*false*/ !usb_keep_awake_connected);
 	if (!ret)
 		atomic_set(&mdwc->pm_suspended, 1);
 

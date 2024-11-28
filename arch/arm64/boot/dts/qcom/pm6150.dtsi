@@ -699,14 +699,15 @@
 	soc {
 		polling-delay-passive = <100>;
 		polling-delay = <0>;
-		thermal-governor = "low_limits_cap";
+		//thermal-governor = "low_limits_cap";
+        thermal-governor = "user_space";
 		thermal-sensors = <&bcl_soc>;
 		wake-capable-sensor;
 		tracks-low;
 
 		trips {
 			soc_trip:soc-trip {
-				temperature = <10>;
+				temperature = <2>;
 				hysteresis = <0>;
 				type = "passive";
 			};
