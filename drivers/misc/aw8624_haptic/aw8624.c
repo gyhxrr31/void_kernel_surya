@@ -711,6 +711,7 @@ static unsigned char aw8624_haptic_set_level(struct aw8624 *aw8624, int gain)
         val = 255;
 
     return val;
+    //return gain;
 }
 
 static int aw8624_haptic_set_gain(struct aw8624 *aw8624, unsigned char gain)
@@ -997,7 +998,7 @@ static int aw8624_lra_resistance_detector(struct aw8624 *aw8624)
 static int aw8624_haptic_ram_vbat_comp(struct aw8624 *aw8624, bool flag)
 {
 	int temp_gain = 0;
-        //pr_info("%s enter, flag = %d,aw8624->ram_vbat_comp=%d\n", __func__, flag, aw8624->ram_vbat_comp);
+    pr_info("%s enter, flag = %d,aw8624->ram_vbat_comp=%d\n", __func__, flag, aw8624->ram_vbat_comp);
 	if (flag) {
 		if (aw8624->ram_vbat_comp == AW8624_HAPTIC_RAM_VBAT_COMP_ENABLE) {
 			aw8624_haptic_get_vbat(aw8624);
@@ -1011,7 +1012,7 @@ static int aw8624_haptic_ram_vbat_comp(struct aw8624 *aw8624, bool flag)
 			    (128 * AW8624_VBAT_REFER / AW8624_VBAT_MIN)) {
 				temp_gain =
 				    128 * AW8624_VBAT_REFER / AW8624_VBAT_MIN;
-				pr_debug("%s gain limit=%d\n", __func__,
+				pr_info("%s gain limit=%d\n", __func__,
 					 temp_gain);
 			}
 			aw8624_haptic_set_gain(aw8624, temp_gain);
@@ -2713,6 +2714,7 @@ static int aw8624_haptics_upload_effect(struct input_dev *dev,
 	ktime_t rem;
 	s64 time_us;
 	int ret;
+    int play_length_us = 0;
 
 	VIB_FUNC_ENTER();
 
@@ -3323,7 +3325,7 @@ static ssize_t aw8624_ulevel_show(struct device *dev,
 				struct device_attribute *attr, char *buf)
 {
 	struct aw8624 *aw8624 = dev_get_drvdata(dev);
-	return snprintf(buf, PAGE_SIZE, "0x%02x\n", aw8624->gain);
+	return snprintf(buf, PAGE_SIZE, "%d\n", aw8624->ulevel);
 }
 
 static ssize_t aw8624_ulevel_store(struct device *dev,
