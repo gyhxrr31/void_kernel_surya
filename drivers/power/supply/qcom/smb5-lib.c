@@ -871,6 +871,12 @@ int smblib_set_fastcharge_mode(struct smb_charger *chg, bool enable)
 	if (!chg->bms_psy)
 		return 0;
 
+
+    pr_info("smblib_set_fastcharge_mode: %d", enable);
+    if( !enable ) {
+        dump_stack();
+    }
+
 #ifdef CONFIG_BATT_VERIFY_BY_DS28E16
 	rc = power_supply_get_property(chg->bms_psy,
 				POWER_SUPPLY_PROP_AUTHENTIC, &pval);
@@ -4986,13 +4992,17 @@ int smblib_get_prop_smb_health(struct smb_charger *chg)
 	if ((input_present == INPUT_NOT_PRESENT) || (!is_cp_available(chg)))
 		return POWER_SUPPLY_HEALTH_UNKNOWN;
 
+    /*
 	rc = power_supply_get_property(chg->cp_psy,
 				POWER_SUPPLY_PROP_CP_DIE_TEMP, &prop);
 	if (rc < 0) {
     	smblib_err(chg,
 				"POWER_SUPPLY_PROP_CP_DIE_TEMP rc=%d\n", rc);
 		return rc;
-    }
+        
+    }*/
+
+    prop.intval = chg->die_temp;
 
 	if (prop.intval > SMB_TEMP_RST_THRESH)
 		return POWER_SUPPLY_HEALTH_OVERHEAT;
@@ -7040,6 +7050,12 @@ static void smblib_raise_qc3_vbus_work(struct work_struct *work)
 		if (chg->is_qc_class_a) {
 			vote(chg->usb_icl_votable, SW_ICL_MAX_VOTER, true,
 					HVDCP_CLASS_A_MAX_UA);
+
+			if (chg->support_ffc) {
+				if (!smblib_get_fastcharge_mode(chg))
+					smblib_set_fastcharge_mode(chg, true);
+			}
+
 		} else {
 			vote(chg->usb_icl_votable, SW_ICL_MAX_VOTER, true,
 				HVDCP_CLASS_B_CURRENT_UA);

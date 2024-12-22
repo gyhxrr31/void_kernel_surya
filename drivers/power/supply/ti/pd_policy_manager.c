@@ -45,7 +45,7 @@
 #define BAT_CURR_LOOP_LMT		BATT_FAST_CHG_CURR
 #define BUS_VOLT_LOOP_LMT		BUS_OVP_THRESHOLD
 
-#define PM_WORK_RUN_INTERVAL		100
+#define PM_WORK_RUN_INTERVAL		250
 
 enum {
 	PM_ALGO_RET_OK,
@@ -62,7 +62,7 @@ static struct pdpm_config pm_config = {
 	.bus_curr_lp_lmt		= BAT_CURR_LOOP_LMT >> 1,
 	.bus_curr_compensate	= 0,
 
-	.fc2_taper_current		= 250,
+	.fc2_taper_current		= 300,
 	.fc2_steps			= 1,
 
 	.min_adapter_volt_required	= 10000,
@@ -122,7 +122,7 @@ static int pd_get_batt_current_thermal_level(struct usbpd_pm *pdpm, int *level)
 	rc = power_supply_get_property(pdpm->sw_psy,
 				POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT, &pval);
 	if (rc < 0) {
-		pr_debug("Couldn't get fastcharge mode:%d\n", rc);
+		pr_debug("Couldn't get charge control limit:%d\n", rc);
 		return rc;
 	}
 
@@ -131,6 +131,24 @@ static int pd_get_batt_current_thermal_level(struct usbpd_pm *pdpm, int *level)
 	*level = pval.intval;
 	return rc;
 }
+
+static int pd_get_batt_capacity(struct usbpd_pm *pdpm)
+{
+	int ret;
+	union power_supply_propval val = {0,};
+
+	usbpd_check_batt_psy(pdpm);
+
+	if (!pdpm->sw_psy)
+		return -ENODEV;
+
+	ret = power_supply_get_property(pdpm->sw_psy,
+			POWER_SUPPLY_PROP_CAPACITY, &val);
+	if (!ret)
+		return val.intval;
+    return -ENODEV;
+}
+
 
 /* determine whether to disable cp according to jeita status */
 static bool pd_disable_cp_by_jeita_status(struct usbpd_pm *pdpm)
@@ -340,12 +358,12 @@ static void usbpd_pm_update_cp_status(struct usbpd_pm *pdpm)
 		}
 		ret = power_supply_get_property(pdpm->bms_psy,
 				POWER_SUPPLY_PROP_FASTCHARGE_MODE, &val);
-		/*if (!ret) {
+		if (!ret) {
 			if (val.intval)
 				pm_config.bat_volt_lp_lmt = pdpm->ffc_bat_volt_max;
 			else
 				pm_config.bat_volt_lp_lmt = pdpm->bat_volt_max;
-		}*/
+		}
 	}
 
 	ret = power_supply_get_property(pdpm->cp_psy,
@@ -657,8 +675,8 @@ static void usbpd_update_pps_status(struct usbpd_pm *pdpm)
 	}
 }
 
-#define TAPER_TIMEOUT	(50000 / PM_WORK_RUN_INTERVAL)
-#define IBUS_CHANGE_TIMEOUT  (500 / PM_WORK_RUN_INTERVAL)
+#define TAPER_TIMEOUT	(30000 / PM_WORK_RUN_INTERVAL)
+#define IBUS_CHANGE_TIMEOUT  (2500 / PM_WORK_RUN_INTERVAL)
 static int usbpd_pm_fc2_charge_algo(struct usbpd_pm *pdpm)
 {
 	int steps;
@@ -699,7 +717,7 @@ static int usbpd_pm_fc2_charge_algo(struct usbpd_pm *pdpm)
 
 	ibus_limit = curr_ibus_limit;
 	/* reduce bus current in cv loop */
-	if (pdpm->cp.vbat_volt > pm_config.bat_volt_lp_lmt - BQ_TAPER_HYS_MV) {
+	if (pdpm->cp.vbat_volt > pm_config.bat_volt_lp_lmt) {
 		if (ibus_lmt_change_timer++ > IBUS_CHANGE_TIMEOUT) {
 			ibus_lmt_change_timer = 0;
 			ibus_limit = curr_ibus_limit - 100;
@@ -718,10 +736,12 @@ static int usbpd_pm_fc2_charge_algo(struct usbpd_pm *pdpm)
 	}
 
 	/* battery voltage loop*/
-	if (pdpm->cp.vbat_volt > pm_config.bat_volt_lp_lmt + 15)
+	if (pdpm->cp.vbat_volt > pm_config.bat_volt_lp_lmt)
 		step_vbat = -pm_config.fc2_steps;
-	else if (pdpm->cp.vbat_volt < pm_config.bat_volt_lp_lmt - 20)
-		step_vbat = pm_config.fc2_steps;
+	else if (pdpm->cp.vbat_volt < pm_config.bat_volt_lp_lmt - 15) {
+        //int mult = (pm_config.bat_volt_lp_lmt - pdpm->cp.vbat_volt)/STEP_MV + 1;
+		step_vbat = pm_config.fc2_steps; // * mult;
+    }
 
 	/* battery charge current loop*/
 	if (pdpm->cp.ibat_curr < (curr_fcc_limit - 90))
@@ -735,12 +755,12 @@ static int usbpd_pm_fc2_charge_algo(struct usbpd_pm *pdpm)
 	if (pm_config.cp_sec_enable)
 		ibus_total += pdpm->cp_sec.ibus_curr;
 
-	pr_info("ibus_limit:%d ibus:%d vbus:%d ibat:%d vbat:%d\n",
-			ibus_limit, ibus_total, pdpm->cp.vbus_volt, pdpm->cp.ibat_curr, pdpm->cp.vbat_volt);
+	pr_info("ibus_limit:%d ibus:%d vbus:%d ibat:%d vbat:%d bat_volt_lp_lmt=%d curr_fcc_limit=%d\n",
+			ibus_limit, ibus_total, pdpm->cp.vbus_volt, pdpm->cp.ibat_curr, pdpm->cp.vbat_volt, pm_config.bat_volt_lp_lmt, curr_fcc_limit);
 
-	if (ibus_total < ibus_limit - 50)
+	if (ibus_total < ibus_limit)
 		step_ibus = pm_config.fc2_steps;
-	else if (ibus_total > ibus_limit + 50)
+	else if (ibus_total > ibus_limit + 30)
 		step_ibus = -pm_config.fc2_steps;
 
 	pr_info("pdpm->cp.vbat_reg:%d, pdpm->cp.ibat_reg:%d\n",
@@ -817,8 +837,9 @@ static int usbpd_pm_fc2_charge_algo(struct usbpd_pm *pdpm)
 	}
 
 	/* charge pump taper charge */
-	if (pdpm->cp.vbat_volt >= pm_config.bat_volt_lp_lmt - 20
-			&& pdpm->cp.ibat_curr < pm_config.fc2_taper_current) {
+	if (pdpm->cp.vbat_volt >= pm_config.bat_volt_lp_lmt - 50
+			&& pdpm->cp.ibat_curr < pm_config.fc2_taper_current
+            && pd_get_batt_capacity(pdpm) > 99) {
 		if (fc2_taper_timer++ > TAPER_TIMEOUT) {
 			pr_info("charge pump taper charging done\n");
 			fc2_taper_timer = 0;
@@ -912,7 +933,7 @@ static int usbpd_pm_sm(struct usbpd_pm *pdpm)
 				usbpd_select_pdo(pdpm->pd, pdpm->apdo_selected_pdo,
 					6000000, pdpm->apdo_max_curr * 1000);
 		    pr_debug("batt_volt %d, waiting...\n", pdpm->cp.vbat_volt);
-		} else if (pdpm->cp.vbat_volt > pm_config.bat_volt_lp_lmt + 150) {
+		} else if (pdpm->cp.vbat_volt > pm_config.bat_volt_lp_lmt + 20) {
 			pr_info("batt_volt %d is too high for cp, charging with switch charger\n",
 					pdpm->cp.vbat_volt);
 			usbpd_pm_move_state(pdpm, PD_PM_STATE_FC2_EXIT);
@@ -965,7 +986,7 @@ static int usbpd_pm_sm(struct usbpd_pm *pdpm)
 		//if (retry_count >= 1)
 		//	pdpm->request_voltage += STEP_MV;
 		//else
-		pdpm->request_voltage = 6000; //pdpm->cp.vbat_volt * 2 + BUS_VOLT_INIT_UP;
+		pdpm->request_voltage = pdpm->cp.vbat_volt * 2; // + BUS_VOLT_INIT_UP;
 
 		pdpm->request_current = pdpm->apdo_max_curr;
 
@@ -982,7 +1003,7 @@ static int usbpd_pm_sm(struct usbpd_pm *pdpm)
 	case PD_PM_STATE_FC2_ENTRY_2:
 		pr_info("tune adapter volt %d , vbatt %d tune_vbus_retry=%d\n",
 					pdpm->cp.vbus_volt, pdpm->cp.vbat_volt, tune_vbus_retry);
-        if (pdpm->cp.vbat_volt > pm_config.bat_volt_lp_lmt + 50) {
+        if (pdpm->cp.vbat_volt > pm_config.bat_volt_lp_lmt + 10) {
 			tune_vbus_retry++;
 			pdpm->request_voltage -= STEP_MV;
 			usbpd_select_pdo(pdpm->pd, pdpm->apdo_selected_pdo,

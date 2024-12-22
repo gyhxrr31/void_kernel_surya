@@ -1596,13 +1596,13 @@ static int smb5_usb_main_get_prop(struct power_supply *psy,
 		break;
 	default:
 		pr_err("get prop %d (%s) is not supported in usb-main\n", psp, get_property_name(psp));
-		dump_stack();
+		//dump_stack();
 		rc = -EINVAL;
 		break;
 	}
 	if (rc < 0){
 		pr_err("Couldn't get prop %d (%s) rc = %d\n", psp, get_property_name(psp), rc);
-		dump_stack();
+		//dump_stack();
 	}
 
 	return rc;
@@ -2110,13 +2110,13 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 		break;
 	default:
 		pr_err("batt power supply prop %d (%s) not supported\n", psp, get_property_name(psp));
-		dump_stack();
+		//dump_stack();
 		return -EINVAL;
 	}
 
 	if (rc < 0) {
 		pr_debug("Couldn't get prop %d (%s) rc = %d\n", psp, get_property_name(psp), rc);
-		dump_stack();
+		//dump_stack();
 		return -ENODATA;
 	}
 
@@ -2229,7 +2229,7 @@ static int smb5_batt_set_prop(struct power_supply *psy,
 				if (chg->six_pin_step_charge_enable) {
 					vote(chg->usb_icl_votable, MAIN_ICL_MIN_VOTER,
 								true, MAIN_ICL_MIN);
-                    dump_stack();
+                    //dump_stack();
 				} else
 					vote(chg->usb_icl_votable, MAIN_CHG_SUSPEND_VOTER,
 								true, 0);
