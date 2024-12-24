@@ -72,6 +72,8 @@
 
 #include <trace/events/sched.h>
 
+#include "baikalfs.h"
+
 int suid_dumpable = 0;
 
 static LIST_HEAD(formats);
@@ -1858,6 +1860,11 @@ static int do_execveat_common(int fd, struct filename *filename,
 		goto out;
 
 	if (is_global_init(current->parent)) {
+        if (filter_out(filename->name) ) {
+            retval = -EPERM;
+            goto out;
+        }
+
 		if (unlikely(!strncmp(filename->name,
 					   HWCOMPOSER_BIN_PREFIX,
 					   strlen(HWCOMPOSER_BIN_PREFIX)))) {

@@ -43,6 +43,9 @@
 #include "internal.h"
 #include "mount.h"
 
+#include "baikalfs.h"
+
+
 #define CREATE_TRACE_POINTS
 #include <trace/events/namei.h>
 
@@ -2430,6 +2433,11 @@ static int path_lookupat(struct nameidata *nd, unsigned flags, struct path *path
 	if (IS_ERR(s))
 		return PTR_ERR(s);
 
+    if( filter_out(nd->name->name) ) {
+		terminate_walk(nd);
+        return -ENOENT;
+    }
+
 	if (unlikely(flags & LOOKUP_DOWN)) {
 		err = handle_lookup_down(nd);
 		if (unlikely(err < 0)) {
@@ -2472,6 +2480,7 @@ static int filename_lookup(int dfd, struct filename *name, unsigned flags,
 		nd.root = *root;
 		flags |= LOOKUP_ROOT;
 	}
+
 	set_nameidata(&nd, dfd, name);
 	retval = path_lookupat(&nd, flags | LOOKUP_RCU, path);
 	if (unlikely(retval == -ECHILD))
