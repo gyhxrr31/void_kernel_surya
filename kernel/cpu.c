@@ -1391,12 +1391,7 @@ void enable_nonboot_cpus(void)
 	__cpu_hotplug_enable();
 	if (cpumask_empty(frozen_cpus))
 		goto out;
-
-<<<<<<< HEAD
-	pr_debug("Enabling non-boot CPUs ...\n");
-=======
 	//pr_info("Enabling non-boot CPUs ...\n");
->>>>>>> e9c332e5280e (Rebase on LineageOS-21)
 
 	arch_enable_nonboot_cpus_begin();
 
