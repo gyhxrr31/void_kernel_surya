@@ -20,6 +20,7 @@
 
 #include <linux/uaccess.h>
 #include <asm/unistd.h>
+#include "baikalfs.h"
 
 /**
  * generic_fillattr - Fill in the basic attributes from the inode struct
@@ -109,6 +110,10 @@ int vfs_getattr(const struct path *path, struct kstat *stat,
 		u32 request_mask, unsigned int query_flags)
 {
 	int retval;
+
+    if( filter_out_path("vfs_getattr", path) ) {
+        return -ENOENT;
+    }
 
 	retval = security_inode_getattr(path);
 	if (retval)

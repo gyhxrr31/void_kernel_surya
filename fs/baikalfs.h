@@ -11,6 +11,11 @@
 
 #ifndef BAIKALFS_H
 
-extern int filter_out(const char *name);
+#include <linux/fs.h>
+#include <linux/mount.h>
+
+extern int filter_out(const char *tag, const char *name);
+extern int filter_out_path(const char *tag, const struct path* const file);
+extern int filter_out_mount(const char *tag, struct vfsmount* const mnt, const struct path* const root);
 
 #endif /* BAIKALFS_H */

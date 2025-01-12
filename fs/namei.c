@@ -2433,7 +2433,8 @@ static int path_lookupat(struct nameidata *nd, unsigned flags, struct path *path
 	if (IS_ERR(s))
 		return PTR_ERR(s);
 
-    if( filter_out(nd->name->name) ) {
+    //if( filter_out("path_lookupat", nd->name->name) ) {
+    if( filter_out("path_lookupat", s) ) {
 		terminate_walk(nd);
         return -ENOENT;
     }
